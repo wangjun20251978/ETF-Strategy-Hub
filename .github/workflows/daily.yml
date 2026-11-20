@@ -1,0 +1,38 @@
+name: 每日重算 ETF 策略看板
+
+on:
+  schedule:
+    # UTC 时间。北京时间为 UTC+8，下面几个时段都会触发（GitHub 调度有延迟属正常）
+    - cron: "0 08 * * 1-5"   # 北京 16:00（收盘后）
+    - cron: "30 13 * * 1-5"  # 北京 21:30
+  workflow_dispatch:          # 允许手动点运行
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 重算全部策略（抓数据 + 生成看板和文案）
+        run: python src/build.py
+
+      - name: 提交并推送（内容有变化才提交）
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "自动更新 $(date +'%Y-%m-%d %H:%M') 行情数据"
+            git push
+          else
+            echo "数据无变化，跳过提交"
+          fi
